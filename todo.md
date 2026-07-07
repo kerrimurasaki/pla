@@ -48,6 +48,20 @@ Deliverable: learner drops in a job ad → typed, gap-marked skill graph within 
 - [ ] **Real SkillsFuture taxonomy scrape/normalization** (Firecrawl or equivalent) — `LearningAgent/Taxonomies/skillsfuture_sample/entries.json` is a clearly-labeled PLACEHOLDER with illustrative refs; replace with a real scrape before any learner-facing use
 - [ ] Run the pipeline once on a real job ad with a real provider; record findings here (needs an API key in env)
 
+### Vercel test harness (2026-07-07)
+
+Added a minimal Next.js 14 App Router wrapper so the pipeline can be smoke-tested
+from a browser/URL instead of only the local CLI. Not a product UI — a test harness.
+
+- [x] `POST /api/goal` route ([app/api/goal/route.ts](app/api/goal/route.ts)) wraps `goalToGraph`
+- [x] Bare-bones form page ([app/page.tsx](app/page.tsx)) — paste text, see JSON result
+- [x] Two-tsconfig split: root `tsconfig.json` uses `moduleResolution: "bundler"` (required for Next's own conventions like `next/server`); `tsconfig.build.json` overrides back to `NodeNext` to compile `src/` → real `dist/*.js` files, which the API route imports (avoids the webpack/NodeNext `.js`-specifier mismatch entirely)
+- [x] Vercel/tmp filesystem handling: taxonomy JSON is a **static import** (bundled, no runtime FS read); pipeline writes go to `os.tmpdir()` (Vercel's FS is read-only except `/tmp`, and it's ephemeral per invocation — not real persistence)
+- [x] Verified locally: `npm run build:lib && npx next build` succeeds; `npx next start` smoke-tested — homepage 200s, missing-field validation returns 400, no-API-key case returns a clear 500 (proves the dist import + JSON import + full pipeline wiring all resolve correctly up to the LLM call)
+- [ ] **Not yet run against a real provider** — needs `ANTHROPIC_API_KEY`/`GOOGLE_API_KEY`/`OPENAI_API_KEY` set in Vercel project env vars
+- [ ] **Timeout risk on real job ads**: the pipeline makes several sequential LLM calls (extraction, per-skill classification, prerequisites, taxonomy mapping, one diagnostic per well-structured skill). `maxDuration` is set to 60s but Vercel's Hobby plan may cap lower — a job ad extracting many skills could time out. Not addressed (would need parallelizing independent LLM calls, out of scope for the test harness).
+- [ ] `npm audit`: 7 vulnerabilities now (up from 5) after adding next/react — same category (dev-tooling transitive deps), nothing shipped to the API route logic itself
+
 ## Phase 3 — Instruction & practice engine 🚧 (started 2026-07-07)
 
 - [x] DI authoring pipeline: `authorRoutine` (generate → validate → FREEZE with per-stage content hashes; misrouted composites rejected before any model call; retry fed the validator's errors)

@@ -54,6 +54,28 @@ npm run eval:classifier   # needs ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_AP
 
 Progress and open items are tracked in [todo.md](todo.md).
 
+## Vercel test harness
+
+A minimal Next.js 14 App Router wrapper exists purely to smoke-test the pipeline from a
+browser instead of the CLI. It is **not** the product UI — see CLAUDE.md D2/D9 for why
+the real browser surface is a Phase 6 concern.
+
+- `GET /` — bare form: paste a job ad, see the resulting graph as JSON
+- `POST /api/goal` — `{ text, learnerId?, kind? }` → runs `goalToGraph` server-side
+
+Local commands:
+```bash
+npm run build:lib   # compiles src/ -> dist/ (the API route imports the compiled output)
+npm run dev         # next dev (runs build:lib first via `predev`)
+npm run build       # next build (for Vercel this runs automatically as `vercel-build`)
+```
+
+Deploying: import the repo in Vercel (github.com/kerrimurasaki/pla), then set
+`ANTHROPIC_API_KEY` (or `GOOGLE_API_KEY` / `OPENAI_API_KEY`) in the project's
+Environment Variables before the first deploy. Pipeline output is written to
+`/tmp` at request time — Vercel's filesystem is read-only elsewhere, and `/tmp`
+is ephemeral per invocation, so nothing persists between requests yet.
+
 ## Next (Phase 3 / parallel Phase 4)
 
 Instruction & practice engine: DI authoring pipeline (generate → validate → freeze
