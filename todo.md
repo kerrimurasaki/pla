@@ -12,6 +12,8 @@ Maintained by Claude Code as engineering happens; Kerri reviews flagged items.
 
 ## Engineering notes for the record
 
+- **First real-provider run (2026-07-07, Vercel):** Kerri ran a Business Analyst job ad through the deployed harness. The pipeline failed exactly where predicted: the real model classified a skill as `ill_structured_composite` and proposed a *component* that was itself typed `ill_structured_composite` — refused by the D4 schema (components must be classic types). The invariant worked; the classifier's resilience didn't exist. Fix: `classifyConcept` now retries (default 3 attempts) feeding the rejection reason back to the model — same pattern as the authoring generators — plus a hardened prompt ("keep decomposing until you reach classic-type skills") and readable error messages instead of raw Zod JSON. Regression-tested. **Watch item:** if real models still exhaust 3 attempts regularly, the decomposition prompt needs restructuring (e.g. two-pass: classify first, decompose separately).
+
 - **Fixed test (2026-07-05):** first run of the claim-eligibility test failed because the test constructed a **single-constituent claim**, which makes the "integrative Tier 1 task spanning ≥2 constituents" requirement unsatisfiable by construction. Fixed the *test* (two constituents: wacc + dcf), not the validator — the validator was correct. Design note: if a real-world claim ever legitimately has one constituent skill, `checkClaimEligibility` will never pass it. Current position: claims aggregate multiple nodes by definition (D7); revisit only if a one-node claim becomes a real use case.
 
 ---

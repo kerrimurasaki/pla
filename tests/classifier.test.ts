@@ -58,7 +58,7 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
         component_skills: [{ name: "subtraction", concept_type: "cognitive_routine" }],
       }),
     ]);
-    await expect(classifyConcept("long division", provider)).rejects.toThrow(
+    await expect(classifyConcept("long division", provider, 1)).rejects.toThrow(
       ClassificationConsistencyError
     );
   });
@@ -72,7 +72,7 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
         rationale: "I made a checklist.",
       }),
     ]);
-    await expect(classifyConcept("diagnosing team underperformance", provider)).rejects.toThrow(
+    await expect(classifyConcept("diagnosing team underperformance", provider, 1)).rejects.toThrow(
       ClassificationConsistencyError
     );
   });
@@ -86,7 +86,7 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
         rationale: "Judgment skill.",
       }),
     ]);
-    await expect(classifyConcept("negotiation", provider)).rejects.toThrow(/decomposition/);
+    await expect(classifyConcept("negotiation", provider, 1)).rejects.toThrow(/decomposition/);
   });
 
   it("rejects components classified as composites (schema constraint)", async () => {
@@ -99,7 +99,50 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
         component_skills: [{ name: "sub-strategy", concept_type: "ill_structured_composite" }],
       }),
     ]);
-    await expect(classifyConcept("strategy", provider)).rejects.toThrow();
+    await expect(classifyConcept("strategy", provider, 1)).rejects.toThrow(/classic types/);
+  });
+
+  it("RETRIES with the rejection fed back: composite-typed component fixed on second attempt (first real-provider failure, 2026-07-07)", async () => {
+    const bad = JSON.stringify({
+      concept: "agile project management",
+      concept_type: "ill_structured_composite",
+      four_question_test: fourYes,
+      rationale: "Judgment skill.",
+      component_skills: [
+        { name: "sprint planning mechanics", concept_type: "cognitive_routine" },
+        { name: "stakeholder management", concept_type: "ill_structured_composite" }, // schema-invalid
+      ],
+    });
+    const good = JSON.stringify({
+      concept: "agile project management",
+      concept_type: "ill_structured_composite",
+      four_question_test: fourYes,
+      rationale: "Judgment skill.",
+      component_skills: [
+        { name: "sprint planning mechanics", concept_type: "cognitive_routine" },
+        { name: "writing user stories", concept_type: "cognitive_routine" },
+      ],
+    });
+    const result = await classifyConcept("agile project management", new MockProvider([bad, good]));
+    expect(result.component_skills).toHaveLength(2);
+    // The schema's refine guarantees classic types — verify the corrected payload landed.
+    expect(result.component_skills!.map((c) => c.concept_type)).toEqual([
+      "cognitive_routine",
+      "cognitive_routine",
+    ]);
+  });
+
+  it("exhausted retries surface a readable error, not raw Zod JSON", async () => {
+    const bad = JSON.stringify({
+      concept: "strategy",
+      concept_type: "ill_structured_composite",
+      four_question_test: fourYes,
+      rationale: "Judgment skill.",
+      component_skills: [{ name: "sub-strategy", concept_type: "ill_structured_composite" }],
+    });
+    await expect(classifyConcept("strategy", new MockProvider([bad, bad]), 2)).rejects.toThrow(
+      /component_skills\.0\.concept_type: Components of an ill_structured_composite/
+    );
   });
 
   it("parses JSON wrapped in markdown fences", async () => {
