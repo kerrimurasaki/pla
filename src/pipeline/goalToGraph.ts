@@ -37,20 +37,27 @@ export async function goalToGraph(
   const taxonomy_mapping = await mapToTaxonomy(analysis.extracted_skills, taxonomyCache, provider);
 
   // Diagnostics for well-structured nodes only; composites are case-assessed.
-  const diagnostics: PracticeItem[] = [];
-  const diagnostic_failures: GoalToGraphResult["diagnostic_failures"] = [];
-  for (const node of graph.all()) {
-    if (!isWellStructured(node.concept_type)) continue;
-    try {
-      diagnostics.push(await generateDiagnostic(node, provider));
-    } catch (err) {
-      if (err instanceof DiagnosticGenerationError) {
-        diagnostic_failures.push({ skill_id: node.skill_id, reason: err.message });
-      } else {
+  // Items are independent — generate concurrently (wall-clock budget on
+  // serverless), collecting per-node failures without failing the batch.
+  const wellStructured = graph.all().filter((n) => isWellStructured(n.concept_type));
+  const outcomes = await Promise.all(
+    wellStructured.map(async (node) => {
+      try {
+        return { node, item: await generateDiagnostic(node, provider) };
+      } catch (err) {
+        if (err instanceof DiagnosticGenerationError) {
+          return { node, failure: err.message };
+        }
         throw err;
       }
-    }
-  }
+    })
+  );
+  const diagnostics: PracticeItem[] = outcomes
+    .filter((o): o is { node: (typeof wellStructured)[number]; item: PracticeItem } => "item" in o)
+    .map((o) => o.item);
+  const diagnostic_failures: GoalToGraphResult["diagnostic_failures"] = outcomes
+    .filter((o): o is { node: (typeof wellStructured)[number]; failure: string } => "failure" in o)
+    .map((o) => ({ skill_id: o.node.skill_id, reason: o.failure }));
 
   const skill_graph: PersonalSkillGraph = {
     goal_id: goal.goal_id,

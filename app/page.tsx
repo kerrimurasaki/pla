@@ -11,14 +11,27 @@ export default function Home() {
   async function run() {
     setLoading(true);
     setResult(null);
+    const startedAt = Date.now();
     try {
       const res = await fetch("/api/goal", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text, learnerId, kind: "job_ad" }),
       });
-      const data = await res.json();
-      setResult(JSON.stringify(data, null, 2));
+      const raw = await res.text();
+      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+      try {
+        setResult(`(${elapsed}s, HTTP ${res.status})\n\n` + JSON.stringify(JSON.parse(raw), null, 2));
+      } catch {
+        // Non-JSON body: platform error page (on Vercel usually a function
+        // timeout). Show it honestly instead of a JSON.parse stack.
+        setResult(
+          `HTTP ${res.status} ${res.statusText} after ${elapsed}s — non-JSON response:\n\n` +
+            raw.slice(0, 2000) +
+            `\n\nIf this says FUNCTION_INVOCATION_TIMEOUT (or is a 504), the pipeline exceeded ` +
+            `the serverless duration limit. Try a shorter job ad, or see todo.md's timeout item.`
+        );
+      }
     } catch (err) {
       setResult(`Request failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {

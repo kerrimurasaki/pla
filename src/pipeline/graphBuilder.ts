@@ -45,11 +45,18 @@ export async function buildSkillGraph(
   provider: LLMProvider
 ): Promise<BuiltGraph> {
   const graph = new SkillGraph();
-  const classifications: ConceptClassification[] = [];
 
-  for (const s of skills) {
-    const c = await classifyConcept(`${s.name} — ${s.description}`, provider);
-    classifications.push(c);
+  // Classifications are independent of each other — run them concurrently
+  // (serverless wall-clock budgets make sequential per-skill calls a
+  // timeout, observed on the first real Vercel run). Assembly below stays
+  // sequential and deterministic in the original skill order.
+  const classifications: ConceptClassification[] = await Promise.all(
+    skills.map((s) => classifyConcept(`${s.name} — ${s.description}`, provider))
+  );
+
+  for (let i = 0; i < skills.length; i++) {
+    const s = skills[i];
+    const c = classifications[i];
     const skillId = slugify(s.name);
 
     // Decomposition duty (D4): components become first-class classic-type nodes.
