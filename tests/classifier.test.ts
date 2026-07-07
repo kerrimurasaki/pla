@@ -16,8 +16,8 @@ const fourYes = {
   requires_recombining_component_skills_per_situation: true,
 };
 
-describe("classify_concept (six types + four-question routing test — D4)", () => {
-  it("accepts a consistent well-structured classification", async () => {
+describe("classify_concept (two-pass: classification + decomposition — D4)", () => {
+  it("accepts a consistent well-structured classification (one call)", async () => {
     const provider = new MockProvider([
       JSON.stringify({
         concept: "long division",
@@ -28,9 +28,10 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
     ]);
     const result = await classifyConcept("long division", provider);
     expect(result.concept_type).toBe("cognitive_routine");
+    expect(result.component_skills).toBeUndefined();
   });
 
-  it("accepts a consistent composite WITH decomposition", async () => {
+  it("accepts a composite whose pass-1 sketch is fully classic-typed (one call, no pass 2)", async () => {
     const provider = new MockProvider([
       JSON.stringify({
         concept: "choosing a valuation approach",
@@ -77,7 +78,7 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
     );
   });
 
-  it("REJECTS composites missing decomposition (decomposition duty)", async () => {
+  it("composite WITHOUT inline components triggers the dedicated decomposition pass", async () => {
     const provider = new MockProvider([
       JSON.stringify({
         concept: "negotiation",
@@ -85,64 +86,60 @@ describe("classify_concept (six types + four-question routing test — D4)", () 
         four_question_test: fourYes,
         rationale: "Judgment skill.",
       }),
-    ]);
-    await expect(classifyConcept("negotiation", provider, 1)).rejects.toThrow(/decomposition/);
-  });
-
-  it("rejects components classified as composites (schema constraint)", async () => {
-    const provider = new MockProvider([
       JSON.stringify({
-        concept: "strategy",
-        concept_type: "ill_structured_composite",
-        four_question_test: fourYes,
-        rationale: "Judgment skill.",
-        component_skills: [{ name: "sub-strategy", concept_type: "ill_structured_composite" }],
+        component_skills: [
+          { name: "computing a BATNA reservation price", concept_type: "cognitive_routine" },
+          { name: "identifying anchoring in an offer", concept_type: "single_dimension_non_comparative" },
+        ],
       }),
     ]);
-    await expect(classifyConcept("strategy", provider, 1)).rejects.toThrow(/classic types/);
-  });
-
-  it("RETRIES with the rejection fed back: composite-typed component fixed on second attempt (first real-provider failure, 2026-07-07)", async () => {
-    const bad = JSON.stringify({
-      concept: "agile project management",
-      concept_type: "ill_structured_composite",
-      four_question_test: fourYes,
-      rationale: "Judgment skill.",
-      component_skills: [
-        { name: "sprint planning mechanics", concept_type: "cognitive_routine" },
-        { name: "stakeholder management", concept_type: "ill_structured_composite" }, // schema-invalid
-      ],
-    });
-    const good = JSON.stringify({
-      concept: "agile project management",
-      concept_type: "ill_structured_composite",
-      four_question_test: fourYes,
-      rationale: "Judgment skill.",
-      component_skills: [
-        { name: "sprint planning mechanics", concept_type: "cognitive_routine" },
-        { name: "writing user stories", concept_type: "cognitive_routine" },
-      ],
-    });
-    const result = await classifyConcept("agile project management", new MockProvider([bad, good]));
+    const result = await classifyConcept("negotiation", provider);
     expect(result.component_skills).toHaveLength(2);
-    // The schema's refine guarantees classic types — verify the corrected payload landed.
-    expect(result.component_skills!.map((c) => c.concept_type)).toEqual([
-      "cognitive_routine",
-      "cognitive_routine",
-    ]);
   });
 
-  it("exhausted retries surface a readable error, not raw Zod JSON", async () => {
-    const bad = JSON.stringify({
+  it("REGRESSION (production 2026-07-07): judgment-typed component is repaired by the decomposition pass, not retried to death", async () => {
+    // Pass 1: model insists component #2 is itself a judgment skill — this
+    // exhausted 3 whole-classification retries in production.
+    const pass1 = JSON.stringify({
+      concept: "Post-Implementation Review",
+      concept_type: "ill_structured_composite",
+      four_question_test: fourYes,
+      rationale: "Outcome evaluation is contested and context-dependent.",
+      component_skills: [
+        { name: "computing variance vs baseline metrics", concept_type: "cognitive_routine" },
+        { name: "stakeholder outcome assessment", concept_type: "ill_structured_composite" },
+      ],
+    });
+    // Pass 2: focused repair, keeping the valid component, replacing the judgment one.
+    const decompose = JSON.stringify({
+      component_skills: [
+        { name: "computing variance vs baseline metrics", concept_type: "cognitive_routine" },
+        { name: "writing measurable success criteria", concept_type: "cognitive_routine" },
+        { name: "identifying leading vs lagging indicators", concept_type: "noun" },
+      ],
+    });
+    const result = await classifyConcept("Post-Implementation Review", new MockProvider([pass1, decompose]));
+    expect(result.concept_type).toBe("ill_structured_composite");
+    expect(result.component_skills!.map((c) => c.name)).toContain("writing measurable success criteria");
+    expect(result.component_skills!.map((c) => c.name)).not.toContain("stakeholder outcome assessment");
+  });
+
+  it("exhausted decomposition retries surface a readable error, not raw Zod JSON", async () => {
+    const pass1 = JSON.stringify({
       concept: "strategy",
       concept_type: "ill_structured_composite",
       four_question_test: fourYes,
       rationale: "Judgment skill.",
-      component_skills: [{ name: "sub-strategy", concept_type: "ill_structured_composite" }],
     });
-    await expect(classifyConcept("strategy", new MockProvider([bad, bad]), 2)).rejects.toThrow(
-      /component_skills\.0\.concept_type: Components of an ill_structured_composite/
-    );
+    const badDecompose = JSON.stringify({
+      component_skills: [
+        { name: "sub-strategy", concept_type: "ill_structured_composite" },
+        { name: "vision setting", concept_type: "ill_structured_composite" },
+      ],
+    });
+    await expect(
+      classifyConcept("strategy", new MockProvider([pass1, badDecompose, badDecompose]), 2)
+    ).rejects.toThrow(/component_skills\.0\.concept_type: Components of an ill_structured_composite/);
   });
 
   it("parses JSON wrapped in markdown fences", async () => {

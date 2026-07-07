@@ -52,22 +52,21 @@ export function routesToCaseEngine(t: FourQuestionTest): boolean {
   return fourQuestionYesCount(t) >= 3;
 }
 
+/** A component of a composite: MUST be one of the five classic types (D4). */
+export const ClassicComponentSkill = z.object({
+  name: z.string(),
+  concept_type: ConceptType.refine((t) => t !== "ill_structured_composite", {
+    message: "Components of an ill_structured_composite must be one of the five classic types",
+  }),
+});
+export type ClassicComponentSkill = z.infer<typeof ClassicComponentSkill>;
+
 export const ConceptClassification = z.object({
   concept: z.string(),
   concept_type: ConceptType,
   four_question_test: FourQuestionTest,
   rationale: z.string(),
   /** Required when concept_type is ill_structured_composite (decomposition duty). */
-  component_skills: z
-    .array(
-      z.object({
-        name: z.string(),
-        concept_type: ConceptType.refine((t) => t !== "ill_structured_composite", {
-          message:
-            "Components of an ill_structured_composite must be one of the five classic types",
-        }),
-      })
-    )
-    .optional(),
+  component_skills: z.array(ClassicComponentSkill).optional(),
 });
 export type ConceptClassification = z.infer<typeof ConceptClassification>;
