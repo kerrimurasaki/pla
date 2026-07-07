@@ -1,0 +1,25 @@
+{
+  "description": "Eval set for classify_concept (Phase 1 deliverable). Expected types are drawn from the master prompt's own examples plus boundary-discipline cases. Run with: npm run eval:classifier (requires ANTHROPIC_API_KEY, GOOGLE_API_KEY, or OPENAI_API_KEY).",
+  "cases": [
+    { "concept": "Identifying whether a line is horizontal", "expected": "single_dimension_non_comparative" },
+    { "concept": "Recognizing the letter 'b'", "expected": "single_dimension_non_comparative" },
+    { "concept": "Identifying the thesis statement in an essay", "expected": "single_dimension_non_comparative" },
+    { "concept": "Identifying whether a word problem is a multiplication problem vs an addition problem", "expected": "single_dimension_non_comparative" },
+    { "concept": "Identifying whether an object is a vehicle", "expected": "noun" },
+    { "concept": "Recognizing whether a group of words is a complete sentence", "expected": "noun" },
+    { "concept": "Judging which of two slopes is steeper", "expected": "comparative" },
+    { "concept": "Determining whether it got warmer or colder from thermometer readings", "expected": "comparative" },
+    { "concept": "Long division", "expected": "cognitive_routine" },
+    { "concept": "Multiplying fractions", "expected": "cognitive_routine" },
+    { "concept": "Calculating WACC (weighted average cost of capital)", "expected": "cognitive_routine" },
+    { "concept": "Structuring a five-paragraph essay", "expected": "cognitive_routine" },
+    { "concept": "Subject-verb agreement: when the subject is singular the verb takes -s", "expected": "correlated_features" },
+    { "concept": "Acids turn litmus paper red", "expected": "correlated_features" },
+    { "concept": "When cash flows are unstable, DCF valuation confidence drops", "expected": "correlated_features" },
+    { "concept": "Choosing the right valuation approach for an acquisition", "expected": "ill_structured_composite" },
+    { "concept": "Diagnosing why a team is underperforming", "expected": "ill_structured_composite" },
+    { "concept": "Formulating a market-entry strategy", "expected": "ill_structured_composite" },
+    { "concept": "Ethical judgment about a layoff decision in context", "expected": "ill_structured_composite" },
+    { "concept": "Negotiating a vendor contract renewal", "expected": "ill_structured_composite" }
+  ]
+}
