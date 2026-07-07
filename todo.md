@@ -43,12 +43,23 @@ Deliverable: learner drops in a job ad → typed, gap-marked skill graph within 
 - [x] Diagnostic micro-assessment generation (generate → validate → present; one retry fed the validator's errors; composites refused — components only)
 - [x] Orchestrator `goalToGraph` writing `Curriculum/{goal_id}/` (original.txt, analysis.json, skill_graph.json, diagnostics/), `Skills/{id}/definition.json`, `Learners/{id}/profile.json`
 - [x] Tests with MockProvider (11 tests; end-to-end job-ad → 4-node typed graph incl. decomposed composite)
-- [ ] **Real SkillsFuture taxonomy scrape/normalization** (Firecrawl or equivalent) — currently only the cache schema + loader exist; tests use a sample fixture
-- [ ] **Diagnostic flow wiring** — running a generated item, assessing the response, and appending the mastery event exists as parts (EventLog, ModeMachine, validators) but isn't wired as one flow yet
-- [ ] **CLI/entry point** to run the pipeline against a real provider end-to-end (currently library + tests only)
-- [ ] Run the pipeline once on a real job ad with a real provider; record findings here
+- [x] Diagnostic flow wiring — `runDiagnosticFlow`: item → `assessResponse` (exact-match short-circuit, LLM judge for equivalence + error-pattern match, authored feedback verbatim) → Tier-2 event appended → gap status bumped to `in_progress` (never to `verified` — that only comes from a derived view meeting the gate)
+- [x] CLI entry point — `npm run pla -- goal <path-or-url> [--learner id] [--kind job_ad] [--taxonomy id] [--root dir]`; provider picked from env keys
+- [ ] **Real SkillsFuture taxonomy scrape/normalization** (Firecrawl or equivalent) — `LearningAgent/Taxonomies/skillsfuture_sample/entries.json` is a clearly-labeled PLACEHOLDER with illustrative refs; replace with a real scrape before any learner-facing use
+- [ ] Run the pipeline once on a real job ad with a real provider; record findings here (needs an API key in env)
 
-## Phase 3 — Instruction & practice engine (not started)
+## Phase 3 — Instruction & practice engine 🚧 (started 2026-07-07)
+
+- [x] DI authoring pipeline: `authorRoutine` (generate → validate → FREEZE with per-stage content hashes; misrouted composites rejected before any model call; retry fed the validator's errors)
+- [x] Example-sequence authoring: `authorExampleSequence` (same generate→validate→retry pattern; juxtaposition blocks required)
+- [x] Frozen-file persistence: `writeRoutine` refuses unfrozen/tampered stages; `verifyFrozenStage` re-checks hashes at load
+- [x] Focus-DI delivery: `DISession` — hash-verified stage load, verbatim direction replay (ModeMachine guard), correction protocol (error → verbatim error_feedback → correct production → restart problem from beginning), abort → block-top restart, checkpoint at stage boundary only
+- [x] Adaptive support logic (advisory form): `AdvisorySession` — fade after 3 consecutive correct, restore after 2 consecutive failures, prereq nudge + cost visibility once per session per node; the `Advisory` type admits no blocking action
+- [ ] **DI delivery events not yet wired to the EventLog** — `DISession` reports step results but doesn't append practice events; wire stage-completion outcomes into `EventLog` (support_stage recorded) so covertization progress feeds mastery analytics
+- [ ] **Example-sequence delivery** — sequences are authored + validated but there's no delivery runner yet (multi-block, restart-at-block-top uses ModeMachine which already supports it)
+- [ ] Practice-item generation at a given difficulty/support level (generalize `generateDiagnostic` — add `difficulty_stage` targeting)
+- [ ] Overlapping fading schedules (Lesson 4: 2 examples at Original then 4 at Stage A) — schema supports stages; scheduler doesn't exist
+- [ ] `corrections.json` authoring (predictable-error corrections beyond per-step error_feedback)
 ## Phase 4 — Case engine (not started)
 ## Phase 5 — Assessment & credential layer (not started)
 - [ ] External chain-root anchoring mechanism decision

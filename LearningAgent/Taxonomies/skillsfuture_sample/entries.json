@@ -1,0 +1,12 @@
+{
+  "taxonomy_id": "skillsfuture_sample",
+  "source_url": "https://www.skillsfuture.gov.sg/skills-framework — PLACEHOLDER SAMPLE, not a real scrape; refs are illustrative until the Firecrawl ingestion lands (see todo.md)",
+  "cached_at": "2026-07-07T00:00:00Z",
+  "entries": [
+    { "taxonomy_id": "skillsfuture_sample", "ref": "SAMPLE-FIN-VAL", "title": "Business Valuation", "description": "Apply valuation methodologies (DCF, comparables, precedent transactions) to determine business value", "sector": "financial_services", "proficiency_levels": ["3", "4", "5"] },
+    { "taxonomy_id": "skillsfuture_sample", "ref": "SAMPLE-FIN-MOD", "title": "Financial Modelling", "description": "Build and maintain financial models to support analysis and decisions", "sector": "financial_services", "proficiency_levels": ["3", "4"] },
+    { "taxonomy_id": "skillsfuture_sample", "ref": "SAMPLE-FIN-ADV", "title": "Client Advisory", "description": "Advise clients on financial strategies and decisions", "sector": "financial_services", "proficiency_levels": ["4", "5"] },
+    { "taxonomy_id": "skillsfuture_sample", "ref": "SAMPLE-DAT-ANA", "title": "Data Analysis", "description": "Analyse data to derive insights supporting business decisions", "sector": "cross_sector", "proficiency_levels": ["2", "3", "4"] },
+    { "taxonomy_id": "skillsfuture_sample", "ref": "SAMPLE-COM-STK", "title": "Stakeholder Communication", "description": "Communicate analysis and recommendations to stakeholders", "sector": "cross_sector", "proficiency_levels": ["3", "4"] }
+  ]
+}
