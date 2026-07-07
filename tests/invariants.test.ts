@@ -67,6 +67,16 @@ describe("Invariant 1 & 3 — practice items", () => {
     expect(validatePracticeItem({ ...goodItem, novel: false }).errors[0]).toContain("novel");
   });
 
+  it("rejects bracketed placeholder correct_responses (F2 — first e2e run leak)", () => {
+    const bad = {
+      ...goodItem,
+      correct_response: "The key requirements identified are: [list of requirements].",
+    };
+    const v = validatePracticeItem(bad);
+    expect(v.valid).toBe(false);
+    expect(v.errors[0]).toContain("placeholder");
+  });
+
   it("rejects vague feedback ('Try again.')", () => {
     const bad = {
       ...goodItem,

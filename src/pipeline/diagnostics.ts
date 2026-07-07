@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { PracticeItem } from "../schemas/item.js";
 import { SkillDefinition } from "../schemas/skill.js";
 import { validatePracticeItem } from "../validators/invariants.js";
+import { judgePracticeItem } from "../validators/itemJudge.js";
 import { LLMProvider } from "../llm/provider.js";
 import { extractJson } from "../util/json.js";
 
@@ -26,8 +27,12 @@ export class DiagnosticGenerationError extends Error {}
 
 /**
  * Generate a micro-diagnostic production item for a skill (Phase 2 flow).
- * Generated → validated against invariants → returned only if it passes
- * (anti-pattern: generate → present without checks). One retry on failure.
+ * Generated → validated against invariants → ADVERSARIALLY JUDGED →
+ * returned only if it survives all three (anti-pattern: generate → present
+ * without checks). The judge (F1) is a separate skeptical LLM pass because
+ * the generator's own shortcut_check is self-reported: the first real
+ * end-to-end run produced "describe the steps"-style items that claimed
+ * all-false shortcut checks while testing recall, not performance.
  *
  * Note: diagnostics run through the normal assessment path (Tier 2 when
  * unaided-but-observed; the ambient micro-diagnostic cap lives in ModeMachine).
@@ -63,8 +68,14 @@ export async function generateDiagnostic(
       novel: true,
     };
     const v = validatePracticeItem(candidate);
-    if (v.valid) return PracticeItem.parse(candidate);
-    lastErrors = v.errors;
+    if (!v.valid) {
+      lastErrors = v.errors;
+      continue;
+    }
+    const item = PracticeItem.parse(candidate);
+    const judgement = await judgePracticeItem(item, provider);
+    if (judgement.passes) return item;
+    lastErrors = judgement.reasons.map((r) => `Adversarial judge: ${r}`);
   }
   throw new DiagnosticGenerationError(
     `Could not generate an invariant-compliant diagnostic for ${skill.skill_id}: ${lastErrors.join("; ")}`

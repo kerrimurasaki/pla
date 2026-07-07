@@ -75,7 +75,9 @@ const classifyRecommend = JSON.stringify({
 const prereqResponse = JSON.stringify({
   prerequisites: {
     build_dcf_valuation_models: ["wacc_calculation"],
-    recommend_valuation_approaches_to_clients: [],
+    // F5 regression: the model lists the composite's own component as its
+    // prerequisite — the builder must strip it (already linked via components).
+    recommend_valuation_approaches_to_clients: ["wacc_calculation"],
   },
 });
 
@@ -84,6 +86,20 @@ const mappingResponse = JSON.stringify({
     { skill_name: "Build DCF valuation models", taxonomy_ref: "FIN-VAL-3001", confidence: 0.9 },
     { skill_name: "Recommend valuation approaches to clients", taxonomy_ref: "FIN-ADV-4002", confidence: 0.7 },
   ],
+});
+
+const judgePass = JSON.stringify({
+  requires_doing_not_describing: true,
+  solvable_without_skill: false,
+  response_is_concrete: true,
+  reasons: [],
+});
+
+const judgeFailDescribing = JSON.stringify({
+  requires_doing_not_describing: false,
+  solvable_without_skill: true,
+  response_is_concrete: true,
+  reasons: ["Item asks the learner to describe steps rather than perform the skill on a concrete instance"],
 });
 
 const diagnosticResponse = (n: number) =>
@@ -127,7 +143,7 @@ describe("Skill extraction (grounded in verbatim goal spans)", () => {
     expect(analysis.extracted_skills).toHaveLength(2);
   });
 
-  it("REJECTS skills the goal text does not evidence", async () => {
+  it("REJECTS skills the goal text does not evidence (after feeding the rejection back once)", async () => {
     const goal = ingestGoalText("alice", "job_ad", JOB_AD);
     const hallucinated = JSON.stringify({
       skills: [
@@ -138,7 +154,21 @@ describe("Skill extraction (grounded in verbatim goal spans)", () => {
         },
       ],
     });
-    await expect(extractSkills(goal, new MockProvider([hallucinated]))).rejects.toThrow(GroundingError);
+    await expect(extractSkills(goal, new MockProvider([hallucinated, hallucinated]))).rejects.toThrow(
+      GroundingError
+    );
+  });
+
+  it("REJECTS single-word evidence quotes — heading extraction, not capability extraction (F3)", async () => {
+    const goal = ingestGoalText("alice", "job_ad", JOB_AD);
+    const headings = JSON.stringify({
+      skills: [
+        { name: "Valuation", description: "Valuation work", evidence_quote: "valuation" },
+      ],
+    });
+    await expect(extractSkills(goal, new MockProvider([headings, headings]))).rejects.toThrow(
+      /single word/
+    );
   });
 });
 
@@ -194,7 +224,7 @@ describe("Diagnostic generation (generate → validate → present)", () => {
     );
   });
 
-  it("retries once with the validator's errors, then succeeds", async () => {
+  it("retries once with the validator's errors, then succeeds (judged on the valid attempt)", async () => {
     const bad = JSON.stringify({
       ...JSON.parse(diagnosticResponse(1)),
       shortcut_check: {
@@ -203,7 +233,10 @@ describe("Diagnostic generation (generate → validate → present)", () => {
         memorization_possible: false,
       },
     });
-    const item = await generateDiagnostic(waccSkill, new MockProvider([bad, diagnosticResponse(1)]));
+    const item = await generateDiagnostic(
+      waccSkill,
+      new MockProvider([bad, diagnosticResponse(1), judgePass])
+    );
     expect(item.skill_id).toBe("wacc_calculation");
   });
 
@@ -214,6 +247,24 @@ describe("Diagnostic generation (generate → validate → present)", () => {
     });
     await expect(generateDiagnostic(waccSkill, new MockProvider([bad, bad]))).rejects.toThrow(
       /invariant-compliant/
+    );
+  });
+
+  it("ADVERSARIAL JUDGE (F1): a describe-not-do item is rejected and regenerated", async () => {
+    const item = await generateDiagnostic(
+      waccSkill,
+      new MockProvider([diagnosticResponse(1), judgeFailDescribing, diagnosticResponse(2), judgePass])
+    );
+    expect(item.stimulus).toContain("task 2"); // the regenerated item, not the judged-out one
+  });
+
+  it("PLACEHOLDER CHECK (F2): bracketed template responses are rejected deterministically", async () => {
+    const templated = JSON.stringify({
+      ...JSON.parse(diagnosticResponse(1)),
+      correct_response: "The key requirements identified are: [list of requirements].",
+    });
+    await expect(generateDiagnostic(waccSkill, new MockProvider([templated, templated]))).rejects.toThrow(
+      /placeholder/
     );
   });
 });
@@ -228,9 +279,14 @@ describe("goalToGraph end-to-end (Phase 2 deliverable)", () => {
       classifyRecommend,
       prereqResponse,
       mappingResponse,
+      // Diagnostics run concurrently: the three generations are issued
+      // first (node order), then the three adversarial judge calls.
       diagnosticResponse(1), // build_dcf_valuation_models
       diagnosticResponse(2), // wacc_calculation
       diagnosticResponse(3), // comparable_company_analysis
+      judgePass,
+      judgePass,
+      judgePass,
     ]);
 
     const result = await goalToGraph(goal, taxonomyCache, provider, root);
@@ -266,5 +322,13 @@ describe("goalToGraph end-to-end (Phase 2 deliverable)", () => {
     const persisted = JSON.parse(await readFile(join(curr, "skill_graph.json"), "utf8"));
     const dcfNode = persisted.nodes.find((n: any) => n.skill_id === "build_dcf_valuation_models");
     expect(dcfNode.prerequisites).toEqual(["wacc_calculation"]);
+
+    // F5: the composite's own component was proposed as its prerequisite —
+    // stripped, because components are already linked.
+    const composite = persisted.nodes.find(
+      (n: any) => n.skill_id === "recommend_valuation_approaches_to_clients"
+    );
+    expect(composite.prerequisites).toEqual([]);
+    expect(composite.component_skill_ids).toContain("wacc_calculation");
   });
 });

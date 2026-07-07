@@ -32,6 +32,14 @@ export function validatePracticeItem(raw: unknown): ValidationResult {
   if (sc.process_of_elimination_possible) errors.push("Invariant 1: process of elimination can bypass the skill");
   if (sc.memorization_possible) errors.push("Invariant 1: memorization can bypass the skill");
   if (!item.novel) errors.push("Test items must be novel — never shown during instruction");
+  // F2 (first e2e run): a correct_response of "The key requirements are:
+  // [list of requirements]…" passed schema validation. Template brackets
+  // mean the model described an answer instead of producing one.
+  if (/\[[^\]]{2,}\]/.test(item.correct_response)) {
+    errors.push(
+      "correct_response contains bracketed placeholder text — provide the actual, complete correct response, not a template"
+    );
+  }
   for (const ce of item.common_errors) {
     if (VAGUE_FEEDBACK.test(ce.feedback.trim())) {
       errors.push(`Vague feedback forbidden: "${ce.feedback}" — say what went wrong, why, and what to do`);

@@ -19,6 +19,7 @@ const PREREQ_SYSTEM = `You propose prerequisite edges among a fixed set of skill
 Rules:
 - Only use skill ids from the provided list. Never invent ids.
 - An edge means: the prerequisite must typically be acquired BEFORE the skill (component knowledge the skill builds on).
+- A composite skill's own components are ALREADY linked to it — never list a skill's components as its prerequisites. Prerequisites are OTHER skills learned earlier.
 - Propose only edges you are confident about. A sparse honest graph beats a dense guessed one.
 - The result must be acyclic.
 
@@ -119,7 +120,13 @@ export async function buildSkillGraph(
   for (const [skillId, list] of Object.entries(prereqs)) {
     const node = graph.get(skillId);
     if (!node) continue; // unknown target id — drop silently rather than invent
-    node.prerequisites = [...new Set(list.filter((p) => known.has(p) && p !== skillId))];
+    // F5: a composite's own components are never its prerequisites — they
+    // are already linked via component_skill_ids (observed noise in the
+    // first real run: agile_methodology's prereqs = its 4 components).
+    const ownComponents = new Set(node.component_skill_ids);
+    node.prerequisites = [
+      ...new Set(list.filter((p) => known.has(p) && p !== skillId && !ownComponents.has(p))),
+    ];
     graph.add(node);
   }
 

@@ -12,6 +12,7 @@ export * from "./core/modes.js";
 export * from "./core/classifier.js";
 export * from "./core/gapsQueue.js";
 export * from "./validators/invariants.js";
+export * from "./validators/itemJudge.js";
 export * from "./llm/provider.js";
 export * from "./schemas/goal.js";
 export * from "./schemas/taxonomy.js";
