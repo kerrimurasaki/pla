@@ -5,6 +5,7 @@ import { useState } from "react";
 export default function Home() {
   const [text, setText] = useState("");
   const [learnerId, setLearnerId] = useState("test_learner");
+  const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -16,7 +17,7 @@ export default function Home() {
       const res = await fetch("/api/goal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, learnerId, kind: "job_ad" }),
+        body: JSON.stringify({ text, learnerId, kind: "job_ad", includeDiagnostics }),
       });
       const raw = await res.text();
       const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -59,8 +60,17 @@ export default function Home() {
         placeholder="Paste a job ad here..."
       />
       <div style={{ marginTop: 12 }}>
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={includeDiagnostics}
+            onChange={(e) => setIncludeDiagnostics(e.target.checked)}
+          />{" "}
+          Generate diagnostic items (slowest step: generation + adversarial judging — uncheck for a
+          fast graph-only run)
+        </label>
         <button onClick={run} disabled={loading || !text.trim()}>
-          {loading ? "Running pipeline… (can take up to a minute)" : "Run pipeline"}
+          {loading ? "Running pipeline… (can take a few minutes)" : "Run pipeline"}
         </button>
       </div>
       {result && (

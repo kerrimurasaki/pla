@@ -26,20 +26,38 @@ export interface GoalToGraphResult {
  * architecture. Every node starts "unverified" — gaps close only through
  * production evidence (Invariant 3), never through the graph build itself.
  */
+export interface GoalToGraphOptions {
+  /**
+   * Skip diagnostic-item generation (the most expensive round: generate +
+   * adversarial judge, with possible regenerations). Escape hatch for tight
+   * serverless budgets — the graph is still fully typed and gap-marked.
+   */
+  include_diagnostics?: boolean;
+}
+
 export async function goalToGraph(
   goal: LearnerGoal,
   taxonomyCache: TaxonomyCacheFile,
   provider: LLMProvider,
-  rootDir: string
+  rootDir: string,
+  opts: GoalToGraphOptions = {}
 ): Promise<GoalToGraphResult> {
+  const includeDiagnostics = opts.include_diagnostics !== false;
   const analysis = await extractSkills(goal, provider);
-  const { graph, classifications } = await buildSkillGraph(analysis.extracted_skills, provider);
-  const taxonomy_mapping = await mapToTaxonomy(analysis.extracted_skills, taxonomyCache, provider);
+
+  // Graph building and taxonomy mapping both depend only on the extraction —
+  // run them concurrently (one LLM round saved on the serverless budget).
+  const [{ graph, classifications }, taxonomy_mapping] = await Promise.all([
+    buildSkillGraph(analysis.extracted_skills, provider),
+    mapToTaxonomy(analysis.extracted_skills, taxonomyCache, provider),
+  ]);
 
   // Diagnostics for well-structured nodes only; composites are case-assessed.
   // Items are independent — generate concurrently (wall-clock budget on
   // serverless), collecting per-node failures without failing the batch.
-  const wellStructured = graph.all().filter((n) => isWellStructured(n.concept_type));
+  const wellStructured = includeDiagnostics
+    ? graph.all().filter((n) => isWellStructured(n.concept_type))
+    : [];
   const outcomes = await Promise.all(
     wellStructured.map(async (node) => {
       try {

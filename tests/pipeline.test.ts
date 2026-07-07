@@ -275,10 +275,13 @@ describe("goalToGraph end-to-end (Phase 2 deliverable)", () => {
     const goal = ingestGoalText("alice", "job_ad", JOB_AD);
     const provider = new MockProvider([
       extractionResponse,
+      // Graph building and taxonomy mapping run concurrently: the per-skill
+      // classifications are issued first, then the mapping call, then the
+      // prerequisites call (which waits on the classifications).
       classifyDcf,
       classifyRecommend,
-      prereqResponse,
       mappingResponse,
+      prereqResponse,
       // Diagnostics run concurrently: the three generations are issued
       // first (node order), then the three adversarial judge calls.
       diagnosticResponse(1), // build_dcf_valuation_models
@@ -330,5 +333,25 @@ describe("goalToGraph end-to-end (Phase 2 deliverable)", () => {
     );
     expect(composite.prerequisites).toEqual([]);
     expect(composite.component_skill_ids).toContain("wacc_calculation");
+  });
+
+  it("include_diagnostics: false skips the item rounds — graph-only fast path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pla-p2-"));
+    const goal = ingestGoalText("alice", "job_ad", JOB_AD);
+    const provider = new MockProvider([
+      extractionResponse,
+      classifyDcf,
+      classifyRecommend,
+      mappingResponse,
+      prereqResponse,
+      // no diagnostic generations, no judge calls
+    ]);
+
+    const result = await goalToGraph(goal, taxonomyCache, provider, root, {
+      include_diagnostics: false,
+    });
+    expect(result.skill_graph.gap_status).toHaveLength(4);
+    expect(result.diagnostics).toHaveLength(0);
+    expect(result.diagnostic_failures).toHaveLength(0);
   });
 });

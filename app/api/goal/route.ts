@@ -15,11 +15,12 @@ import type { LLMProvider, LearnerGoal } from "../../../dist/index.js";
 // config — no filesystem read of repo-relative paths needed at runtime.
 import sampleTaxonomyRaw from "../../../LearningAgent/Taxonomies/skillsfuture_sample/entries.json";
 
-// The pipeline makes several sequential LLM calls (extraction, per-skill
-// classification, prerequisites, taxonomy mapping, diagnostics) — request
-// the platform's max function duration. Vercel Hobby caps this lower than
-// 60s regardless; large job ads may still time out (see README).
-export const maxDuration = 60;
+// The pipeline runs ~5-9 sequential LLM rounds (extraction → classification
+// + mapping → prerequisites → diagnostics generation → adversarial judging,
+// with retries). 60s proved too tight once the judge round landed
+// (FUNCTION_INVOCATION_TIMEOUT observed 2026-07-07). Hobby allows up to
+// 300s when Fluid Compute is enabled (default for new projects).
+export const maxDuration = 300;
 
 function pickProvider(): LLMProvider {
   if (process.env.ANTHROPIC_API_KEY) return new AnthropicProvider();
@@ -32,7 +33,12 @@ function pickProvider(): LLMProvider {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { text?: string; learnerId?: string; kind?: LearnerGoal["kind"] };
+  let body: {
+    text?: string;
+    learnerId?: string;
+    kind?: LearnerGoal["kind"];
+    includeDiagnostics?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -57,7 +63,9 @@ export async function POST(req: NextRequest) {
     // storage, not real persistence (see README/todo.md).
     const rootDir = join(tmpdir(), "pla", randomUUID().slice(0, 8));
 
-    const result = await goalToGraph(goal, cache, provider, rootDir);
+    const result = await goalToGraph(goal, cache, provider, rootDir, {
+      include_diagnostics: body.includeDiagnostics !== false,
+    });
     return NextResponse.json({ goal, ...result });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
