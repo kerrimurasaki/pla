@@ -19,6 +19,20 @@ Maintained by Claude Code as engineering happens; Kerri reviews flagged items.
 
 ---
 
+## First successful end-to-end run — quality findings (2026-07-07)
+
+BA job ad → 33-node graph + 24 diagnostics in 43.8s, zero failures. Structural
+invariants all held (honest taxonomy nulls, two-pass decomposition worked,
+component reuse via slug dedup worked). Content-quality findings, in priority order:
+
+- [ ] **F1 — shortcut_check is self-reported and therefore worthless.** The generating model asserts `pattern_matching_possible: false` because the prompt demands it. Several diagnostics are actually "describe the steps of X" essay questions (e.g. the `coding` item asks the learner to *describe* the coding phase — answerable from a textbook without being able to code). This is a skill-only-path (Invariant 1) violation in spirit that passes the schema. Fix: **adversarial validation pass** — an independent judge call asking "can this be answered by describing rather than doing? by recall?" — mirroring generate→validate with a *different* prompt doing the validating. (Anti-pattern list already warned: don't skip invariant checks; self-report isn't a check.)
+- [ ] **F2 — placeholder leak:** `document_analysis` diagnostic's correct_response is literally "The key requirements identified are: [list of requirements]…" — template brackets passed validation. Add a cheap deterministic check (reject bracketed placeholders / suspiciously generic responses) + fold into F1's judge.
+- [ ] **F3 — extraction granularity:** the extractor pulled SDLC *phase names* ("Implementation", "Maintenance" — evidence quotes as thin as the single word "requirements"), not learner capabilities. All 8 then classified ill_structured_composite, which is suspicious at this altitude. Extraction prompt should demand teachable capabilities and reject bare section-heading nouns.
+- [ ] **F4 — classification skew:** 23/25 components are cognitive_routine; zero comparatives/correlated_features; the one `noun` (user_story_creation) is arguably a routine. Run the classifier eval (`npm run eval:classifier`) against the same provider to quantify; likely needs boundary examples for non-routine types in the prompt.
+- [ ] **F5 — prerequisite noise:** composites list their own components as prerequisites too (agile_methodology's prereqs = its 4 components); requirements_gathering's prereqs are another composite's components. Harmless to the DAG, muddy semantically. Tighten the prereq prompt: components are never prerequisites of their own composite.
+- [ ] **F6 — semantic near-duplicates:** `testing` and `software_testing` coexist; `requirements_analysis` vs `requirements_gathering`. Slug dedup can't see synonyms — needs a merge pass before graph assembly.
+- [x] **Honest-null taxonomy mapping worked as designed** (all 8 null against the 5-entry placeholder cache) — but it makes the real SkillsFuture scrape the blocking item for any credential-language value.
+
 ## Phase 1 — Schema & invariants foundation ✅ (2026-07-05)
 
 - [x] File architecture (`LearningAgent/` scaffold, path conventions)
