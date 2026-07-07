@@ -4,6 +4,7 @@ import {
   fourQuestionYesCount,
 } from "../schemas/concept.js";
 import { LLMProvider } from "../llm/provider.js";
+import { extractJson } from "../util/json.js";
 
 const SYSTEM = `You classify skills/concepts for an evidence-based learning system into exactly SIX types.
 
@@ -83,15 +84,4 @@ export async function classifyConcept(
   }
 
   return parsed;
-}
-
-function extractJson(raw: string): string {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("{")) return trimmed;
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) return fence[1].trim();
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start >= 0 && end > start) return trimmed.slice(start, end + 1);
-  throw new Error("No JSON object found in model output");
 }

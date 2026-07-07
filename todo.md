@@ -32,18 +32,21 @@ Maintained by Claude Code as engineering happens; Kerri reviews flagged items.
 - [ ] **Classifier eval not yet run against a real provider** — needs an API key; run once and record the score here
 - [ ] **Browser-surface spike** (extension vs CDP overlay vs custom shell) — deferred from Phase 1, must happen before Phase 6
 
-## Phase 2 — Goal-to-graph pipeline 🚧 (started 2026-07-05)
+## Phase 2 — Goal-to-graph pipeline 🚧 (started 2026-07-05; core landed 2026-07-07)
 
 Deliverable: learner drops in a job ad → typed, gap-marked skill graph within minutes.
 
-- [ ] Goal ingestion (raw text + URL fetch with provenance; Firecrawl-ready interface)
-- [ ] Skill extraction (LLM; each skill grounded in a quoted span of the goal text)
-- [ ] Taxonomy cache + `map_to_taxonomy` (SkillsFuture TSC first; mapped refs must exist in cache — never invented ad hoc)
-- [ ] Skill-graph generation (classify each skill, prerequisites, composite decomposition, DAG-validate)
-- [ ] Diagnostic micro-assessment generation (production items, invariant-validated)
-- [ ] Orchestrator writing `Curriculum/{source_id}/` + `Learners/{learner_id}/profile.json`
-- [ ] Tests with MockProvider
-- [ ] Real SkillsFuture taxonomy scrape/normalization (Firecrawl or equivalent) — stub cache first
+- [x] Goal ingestion (pasted text + URL fetch with provenance; `GoalFetcher` interface is Firecrawl-ready)
+- [x] Skill extraction (LLM; each skill must quote a verbatim span of the goal text — `GroundingError` otherwise)
+- [x] Taxonomy cache + `map_to_taxonomy` (non-null refs must exist in cache — `TaxonomyIntegrityError` on invention; honest nulls allowed)
+- [x] Skill-graph generation (classify each skill, composite decomposition → real component nodes, prerequisite edges among known ids only, DAG-validated)
+- [x] Diagnostic micro-assessment generation (generate → validate → present; one retry fed the validator's errors; composites refused — components only)
+- [x] Orchestrator `goalToGraph` writing `Curriculum/{goal_id}/` (original.txt, analysis.json, skill_graph.json, diagnostics/), `Skills/{id}/definition.json`, `Learners/{id}/profile.json`
+- [x] Tests with MockProvider (11 tests; end-to-end job-ad → 4-node typed graph incl. decomposed composite)
+- [ ] **Real SkillsFuture taxonomy scrape/normalization** (Firecrawl or equivalent) — currently only the cache schema + loader exist; tests use a sample fixture
+- [ ] **Diagnostic flow wiring** — running a generated item, assessing the response, and appending the mastery event exists as parts (EventLog, ModeMachine, validators) but isn't wired as one flow yet
+- [ ] **CLI/entry point** to run the pipeline against a real provider end-to-end (currently library + tests only)
+- [ ] Run the pipeline once on a real job ad with a real provider; record findings here
 
 ## Phase 3 — Instruction & practice engine (not started)
 ## Phase 4 — Case engine (not started)

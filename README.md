@@ -41,8 +41,21 @@ npm run eval:classifier   # needs ANTHROPIC_API_KEY / GOOGLE_API_KEY / OPENAI_AP
 - **Tunables (D8)** live in each skill's `mastery_criteria.criss_crossing`, so the
   criss-crossing gate can be adjusted per the kill criteria without code changes.
 
-## Next (Phase 2)
+## Phase 2 — Goal-to-graph pipeline (core landed)
 
-Goal-to-graph pipeline: job-ad ingestion, SkillsFuture taxonomy mapping, personal
-skill-graph generation, diagnostic micro-assessment flow. The `map_to_taxonomy` and
-`fetch_grounded_source` tools land there.
+| Piece | Where | Guarantee |
+|---|---|---|
+| Goal ingestion | [goalIngestion.ts](src/pipeline/goalIngestion.ts) | provenance recorded; `GoalFetcher` interface is Firecrawl-ready |
+| Skill extraction | [skillExtraction.ts](src/pipeline/skillExtraction.ts) | every skill quotes a verbatim span of the goal text, else `GroundingError` |
+| Taxonomy mapping | [taxonomy.ts](src/core/taxonomy.ts) | refs must exist in the cached taxonomy — never invented (D9); honest nulls allowed |
+| Graph builder | [graphBuilder.ts](src/pipeline/graphBuilder.ts) | six-type classification per skill, composites decomposed into real nodes, DAG-validated |
+| Diagnostics | [diagnostics.ts](src/pipeline/diagnostics.ts) | generate → validate against invariants → present; composites refused (case-assessed only) |
+| Orchestrator | [goalToGraph.ts](src/pipeline/goalToGraph.ts) | job ad → typed, gap-marked graph + diagnostics, persisted per the file architecture; all nodes start `unverified` |
+
+Progress and open items are tracked in [todo.md](todo.md).
+
+## Next (Phase 3 / parallel Phase 4)
+
+Instruction & practice engine: DI authoring pipeline (generate → validate → freeze
+verbatim routine files), Focus-DI delivery with atomicity enforcement, adaptive
+support logic in advisory form. Phase 4 (case engine) can partially parallelize.
